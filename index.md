@@ -20,7 +20,7 @@
 
 ## 友情链接
 - [<font face="等线" color=grey size=7>XChat</font>](xq.kzw.ink)
-- [<font face="等线" color=grey size=7>冷风团队t</font>](coldwind.ml)
+- [<font face="等线" color=grey size=7>冷风团队</font>](coldwind.ml)
 - [<font face="等线" color=grey size=7>DLMSS服务器官方网站</font>](dengquejiewangzhan.ml)
 
 <center><font face="等线" color=grey size=4>2023 Copyright FragDev.</font></center>
