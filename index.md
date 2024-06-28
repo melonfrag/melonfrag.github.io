@@ -1,2 +1,2 @@
-IF YOU CAN READ THIS IT MEANS I HAVE IT LINKED.
-**GO TO** https://note.ms/FragBoard **AND LEAVE YOUR MESSAGES HERE**
+更新这东西太累了    
+不搞了 本网站废置 等我想到干啥再用
