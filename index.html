@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Terminal</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #00FF00;
+            font-family: monospace;
+            padding: 20px;
+        }
+        #terminal {
+            width: 100%;
+            height: 70vh;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            border: 1px solid #00FF00;
+            padding: 10px;
+        }
+        #inputLine {
+            display: flex;
+            align-items: center;
+        }
+        #inputPrompt {
+            margin-right: 10px;
+        }
+        #inputField {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #00FF00;
+            font-family: monospace;
+        }
+        #ipAddress {
+            margin-top: 10px;
+        }
+    </style>
+    
+</head>
+<body>
+    <div id="terminal"></div>
+    <div id="inputLine">
+        <span id="inputPrompt">></span>
+        <input type="text" id="inputField" autocomplete="off">
+    </div>
+    <div id="ipAddress" style="display: none;"></div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const inputField = document.getElementById('inputField');
+        const ipAddress = document.getElementById('ipAddress');
+        const info = [
+            "Welcome to terminal.",
+            "If you cannot connect to the server, probably the WebSocket server is off.",
+            "Also, only IP from China(mainland) is accepted."
+        ]
+        let ws;
+        let messageHistory = [];
+        let historyIndex = -1;
+        function showInfo() {
+            for (let key in info){
+                appendToTerminal(info[key])
+            }
+        }
+        function connectWebSocket() {
+            ws = new WebSocket('ws://39.105.127.10:6022');
+
+            ws.onmessage = function(event) {
+                const message = event.data;
+                appendToTerminal(`<<< ${message}`);
+            };
+
+            ws.onopen = function() {
+                appendToTerminal('Connected to server.');
+            };
+
+            ws.onclose = function() {
+                appendToTerminal('Disconnected from server. Reconnecting in 5 seconds...');
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = function(error) {
+                appendToTerminal(`WebSocket error: ${error.message}`);
+            };
+        }
+        
+        inputField.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                const message = inputField.value;
+                if (message.trim() !== '') {
+                    appendToTerminal(`>>> ${message}`);
+                    ws.send(`{"sender":"${ipAddress.textContent}","tripcode":"Terminal","msg":"${message}"}`);
+                    inputField.value = '';
+                }
+            } else if (event.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    inputField.value = messageHistory[historyIndex];
+                }
+            } else if (event.key === 'ArrowDown') {
+                if (historyIndex < messageHistory.length - 1) {
+                    historyIndex++;
+                    inputField.value = messageHistory[historyIndex];
+                } else {
+                    inputField.value = '';
+                    historyIndex = messageHistory.length;
+                }
+            }
+        });
+
+        function appendToTerminal(message) {
+            terminal.textContent += `${message}\n`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Fetch public IP address
+        async function fetchPublicIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                ipAddress.textContent = `${data.ip}`;
+            } catch (error) {
+                ipAddress.textContent = 'Could not fetch public IP address.';
+            }
+        }
+
+        showInfo();
+        fetchPublicIP();
+        connectWebSocket();
+    </script>
+</body>
+</html>
