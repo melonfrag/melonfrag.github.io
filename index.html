@@ -31,32 +31,60 @@
             border: none;
             color: #00FF00;
             font-family: monospace;
+            resize: none;
+            overflow: hidden;
+        }
+        p{
+            margin: 0;
+        }
+        div{
+            margin: 0;
+            width: auto;
         }
         #ipAddress {
             margin-top: 10px;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div id="terminal"><p style="margin: 15px;"></p></div>
     <div id="inputLine">
         <span id="inputPrompt">></span>
-        <input type="text" id="inputField" autocomplete="off">
-    </div>
+        <textarea id="inputField" autocomplete="off" rows="1"></textarea>
+    </div>    
     <div id="ipAddress" style="display: none;"></div>
 
     <script>
         const terminal = document.querySelector('#terminal p');
         const inputField = document.getElementById('inputField');
+        const htmlTitle = document.querySelector('title');
         const ipAddress = document.getElementById('ipAddress');
         const info = [
             "Welcome to terminal.",
             "If you cannot connect to the server, probably the WebSocket server is off.",
             "Also, only IP from China(mainland) is accepted."
         ];
+        var nick = localStorage.getItem('nick') || '';
+        var enteredNick = false;
+        var unreadMsgNum = 0;
+        var windowStatus = 'focus';
+        let titleText = 'WebSocket Terminal';
         let ws;
         let messageHistory = [];
         let historyIndex = -1;
+
+        htmlTitle.innerText = titleText;
+        window.onfocus = function() {
+            htmlTitle.innerText = titleText;
+            windowStatus = 'focus';
+            unreadMsgNum = 0;
+            console.log('focused');
+        };
+        window.onblur = function() {
+            windowStatus = 'blur';
+            console.log('blured');
+        };
 
         function showInfo() {
             for (let key in info) {
@@ -100,17 +128,24 @@
 
             ws.onmessage = function(event) {
                 let message = event.data;
-                if (message.slice(1, 11) == `[Terminal]`) {
-                    message = trimMessage(message);
+                if (message != "") {
+                    appendToTerminal(`<<< ${message.substr(1, message.length - 2)}`);
                 }
-                appendToTerminal(`<<< ${message}`);
+
+                if (windowStatus == 'blur') {
+                    unreadMsgNum = unreadMsgNum + 1;
+                    htmlTitle.innerText = `(${unreadMsgNum}) ${titleText}`;
+                }
             };
 
             ws.onopen = function() {
                 appendToTerminal('Connected to server.');
+                appendToTerminal('Please enter a nickname at bottom first. This nickname will be visible to all.');
+                document.getElementById('inputField').value = nick;
             };
 
             ws.onclose = function() {
+                enteredNick = false;
                 appendToTerminal('Disconnected from server. Reconnecting in 5 seconds...');
                 setTimeout(connectWebSocket, 5000);
             };
@@ -121,43 +156,77 @@
         }
         
         inputField.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !event.ctrlKey) {
+                event.preventDefault();
                 const message = inputField.value;
                 if (message.trim() !== '') {
+                    if (!enteredNick) {
+                        nick = message;
+                        localStorage.setItem('nick', nick);
+                        enteredNick = true;
+                        document.getElementById('inputField').value = '';
+                        appendToTerminal(`Successfully set nickname "${nick}". Have a nice chat!`);
+                        return true;
+                    }
                     const formattedMessage = {
-                        sender: ipAddress.textContent,
-                        tripcode: "Terminal",
+                        sender: nick,
+                        tripcode: ipAddress.innerText,
                         msg: message
                     };
                     ws.send(JSON.stringify(formattedMessage));
                     messageHistory.push(message);
                     historyIndex = messageHistory.length;
                     inputField.value = '';
+                    inputField.rows = 1; // 重置行数
                 }
+            } else if (event.key === 'Enter' && event.ctrlKey) {
+                inputField.value += '\n';
+                adjustTextareaHeight(inputField);
             } else if (event.key === 'ArrowUp') {
                 if (historyIndex > 0) {
                     historyIndex--;
                     inputField.value = messageHistory[historyIndex];
+                    adjustTextareaHeight(inputField);
                 }
             } else if (event.key === 'ArrowDown') {
                 if (historyIndex < messageHistory.length - 1) {
                     historyIndex++;
                     inputField.value = messageHistory[historyIndex];
+                    adjustTextareaHeight(inputField);
                 } else {
                     inputField.value = '';
                     historyIndex = messageHistory.length;
+                    adjustTextareaHeight(inputField);
                 }
             }
         });
 
-        function appendToTerminal(message) {
-            message = message.replace(/\\\\/g, '\\').replace(/\\"/g, '"');
-            const msgCN = unicode2Ch(message);
-            const messageElement = document.createElement('div');
-            messageElement.textContent = msgCN;
-            terminal.appendChild(messageElement);
-            messageElement.scrollIntoView({ behavior: 'smooth' });
+        function adjustTextareaHeight(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
         }
+
+        inputField.addEventListener('input', function() {
+            adjustTextareaHeight(inputField);
+        });
+
+        function escapeHTML(html) {
+            var text = document.createTextNode(html);
+            var p = document.createElement('p');
+            p.appendChild(text);
+            return p.innerHTML;
+        }
+
+        function appendToTerminal(message) {
+            message = escapeHTML(message.replace(/\\\\/g, '\\').replace(/\\"/g, '"').replace(/\\n/g, '  \n'));
+            const msgCN = unicode2Ch(message);
+            const formattedMessage = marked.parse(msgCN, { sanitize: true });
+            const div = document.createElement('div');
+            div.innerHTML = formattedMessage;
+            terminal.appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+
 
         const observer = new MutationObserver(() => {
             const lastChild = terminal.lastElementChild;
