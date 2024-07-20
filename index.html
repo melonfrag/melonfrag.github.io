@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +17,6 @@
             overflow-y: scroll;
             white-space: pre-wrap;
             border: 1px solid #00FF00;
-            padding: 10px;
         }
         #inputLine {
             display: flex;
@@ -37,10 +36,9 @@
             margin-top: 10px;
         }
     </style>
-    
 </head>
 <body>
-    <div id="terminal"></div>
+    <div id="terminal"><p style="margin: 15px;"></p></div>
     <div id="inputLine">
         <span id="inputPrompt">></span>
         <input type="text" id="inputField" autocomplete="off">
@@ -48,27 +46,63 @@
     <div id="ipAddress" style="display: none;"></div>
 
     <script>
-        const terminal = document.getElementById('terminal');
+        const terminal = document.querySelector('#terminal p');
         const inputField = document.getElementById('inputField');
         const ipAddress = document.getElementById('ipAddress');
         const info = [
             "Welcome to terminal.",
             "If you cannot connect to the server, probably the WebSocket server is off.",
             "Also, only IP from China(mainland) is accepted."
-        ]
+        ];
         let ws;
         let messageHistory = [];
         let historyIndex = -1;
+
         function showInfo() {
-            for (let key in info){
-                appendToTerminal(info[key])
+            for (let key in info) {
+                appendToTerminal(info[key]);
             }
         }
+
+        function unicode2Ch(str) {
+            if (!str) {
+                return;
+            }
+            var len = 1;
+            var result = '';
+            for (var i = 0; i < str.length; i = i + len) {
+                len = 1;
+                var temp = str.charAt(i);
+                if (temp == '\\') {
+                    if (str.charAt(i + 1) == 'u') {
+                        var unicode = str.substr((i + 2), 4); 
+                        result += String.fromCharCode(parseInt(unicode, 16).toString(10));
+                        len = 6;
+                    } else {
+                        result += temp;
+                    }
+                } else {
+                    result += temp;
+                }
+            }
+            return result;
+        }
+
+        function trimMessage(message) {
+            if (message.length > 2) {
+                return message.slice(1, -1);
+            }
+            return message;
+        }
+
         function connectWebSocket() {
             ws = new WebSocket('ws://39.105.127.10:6022');
 
             ws.onmessage = function(event) {
-                const message = event.data;
+                let message = event.data;
+                if (message.slice(1, 11) == `[Terminal]`) {
+                    message = trimMessage(message);
+                }
                 appendToTerminal(`<<< ${message}`);
             };
 
@@ -90,8 +124,14 @@
             if (event.key === 'Enter') {
                 const message = inputField.value;
                 if (message.trim() !== '') {
-                    appendToTerminal(`>>> ${message}`);
-                    ws.send(`{"sender":"${ipAddress.textContent}","tripcode":"Terminal","msg":"${message}"}`);
+                    const formattedMessage = {
+                        sender: ipAddress.textContent,
+                        tripcode: "Terminal",
+                        msg: message
+                    };
+                    ws.send(JSON.stringify(formattedMessage));
+                    messageHistory.push(message);
+                    historyIndex = messageHistory.length;
                     inputField.value = '';
                 }
             } else if (event.key === 'ArrowUp') {
@@ -111,9 +151,21 @@
         });
 
         function appendToTerminal(message) {
-            terminal.textContent += `${message}\n`;
-            terminal.scrollTop = terminal.scrollHeight;
+            message = message.replace(/\\\\/g, '\\').replace(/\\"/g, '"');
+            const msgCN = unicode2Ch(message);
+            const messageElement = document.createElement('div');
+            messageElement.textContent = msgCN;
+            terminal.appendChild(messageElement);
+            messageElement.scrollIntoView({ behavior: 'smooth' });
         }
+
+        const observer = new MutationObserver(() => {
+            const lastChild = terminal.lastElementChild;
+            if (lastChild) {
+                lastChild.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+        observer.observe(terminal, { childList: true, subtree: true });
 
         // Fetch public IP address
         async function fetchPublicIP() {
