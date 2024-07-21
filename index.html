@@ -37,9 +37,8 @@
         p{
             margin: 0;
         }
-        div{
-            margin: 0;
-            width: auto;
+        #terminal div{
+            margin-top:-0.5rem;
         }
         #ipAddress {
             margin-top: 10px;
@@ -79,11 +78,9 @@
             htmlTitle.innerText = titleText;
             windowStatus = 'focus';
             unreadMsgNum = 0;
-            console.log('focused');
         };
         window.onblur = function() {
             windowStatus = 'blur';
-            console.log('blured');
         };
 
         function showInfo() {
@@ -116,20 +113,13 @@
             return result;
         }
 
-        function trimMessage(message) {
-            if (message.length > 2) {
-                return message.slice(1, -1);
-            }
-            return message;
-        }
-
         function connectWebSocket() {
             ws = new WebSocket('ws://39.105.127.10:6022');
 
             ws.onmessage = function(event) {
                 let message = event.data;
-                if (message != "") {
-                    appendToTerminal(`<<< ${message.substr(1, message.length - 2)}`);
+                if(message !== ""){
+                    appendToTerminal(`<<< ${message.slice(1,-1)}`);
                 }
 
                 if (windowStatus == 'blur') {
@@ -142,7 +132,9 @@
                 appendToTerminal('Connected to server.');
                 appendToTerminal('Please enter a nickname at bottom first. This nickname will be visible to all.');
                 document.getElementById('inputField').value = nick;
+
             };
+
 
             ws.onclose = function() {
                 enteredNick = false;
@@ -165,6 +157,9 @@
                         localStorage.setItem('nick', nick);
                         enteredNick = true;
                         document.getElementById('inputField').value = '';
+                        // 发送用户名给服务器
+                    const nameMessage = JSON.stringify({ name: nick });
+                    ws.send(nameMessage);
                         appendToTerminal(`Successfully set nickname "${nick}". Have a nice chat!`);
                         return true;
                     }
