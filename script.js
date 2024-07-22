@@ -138,7 +138,7 @@ function displayMessage(message) {
         const messageElement = document.createElement('div');
         var index = message.indexOf(": ");
         console.log(message.substring(index+2, message.length).replace("\\n","\n"))
-        if(message.includes("```")){
+        if(message.includes("CODE_BEGIN::") && message.includes("::CODE_END")){
             messageContent = message.substring(0, index+2) + renderMarkdownCode(message.substring(index+2, message.length).replace(/\\n/g,"\n"))
                             .replace(/\\n/g, "<br>")
                             .replace(/\\"/g, '"')
