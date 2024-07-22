@@ -9,7 +9,7 @@ let history = [];
 let historyIndex = -1;
 
 function setupWebSocket() {
-    socket = new WebSocket('ws://127.0.0.1:12345');
+    socket = new WebSocket('ws://39.105.127.10:6602');
 
     socket.addEventListener('open', function() {
         console.log('Connected to WebSocket');
