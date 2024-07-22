@@ -46,3 +46,12 @@ body {
 #chat-input:focus {
     outline: none;
 }
+
+mark {
+    background-color: #0f0; 
+    color: black;
+}
+
+pre{
+    background-color: #444;
+}
