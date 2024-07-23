@@ -7,6 +7,7 @@ let nickname = "";
 let ipAddress = "";
 let history = [];
 let historyIndex = -1;
+let unreadCount = 0;
 
 function setupWebSocket() {
     socket = new WebSocket('ws://39.105.127.10:6022');
@@ -47,7 +48,6 @@ function setupWebSocket() {
     });
 }
 
-
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -57,11 +57,12 @@ function escapeHtml(text) {
 }
 
 function renderMarkdown(text) {
+    
     // Escape HTML tags
     text = escapeHtml(text);
 
     // Markdown rendering logic
-    return text
+    text = text
         // Headers
         .replace(/^######\s*(.*)$/gm, '<h6>$1</h6>')
         .replace(/^#####\s*(.*)$/gm, '<h5>$1</h5>')
@@ -106,9 +107,15 @@ function renderMarkdown(text) {
         .replace(/\^(.*?)\^/g, '<sup>$1</sup>')
         // Footnotes
         .replace(/\[\^(.*?)\]\((.*?)\)/g, '<sup>$1</sup> <small>$2</small>')
+        // Highlight
+        .replace(/==(.*?)==/g, '<mark>$1</mark>')
         // Line breaks
         .replace(/\n/g, '<br>');
+
+        text = text.replace(/\uE000/g, '');
+        return text;
 }
+
 
 
 function renderLatex(text) {
@@ -140,14 +147,14 @@ function displayMessage(message) {
         console.log(message.substring(index+2, message.length).replace("\\n","\n"))
         if(message.includes("CODE_BEGIN::") && message.includes("::CODE_END")){
             messageContent = message.substring(0, index+2) + renderMarkdownCode(message.substring(index+2, message.length).replace(/\\n/g,"\n"))
-                            .replace(/\\n/g, "<br>")
                             .replace(/\\"/g, '"')
                             .replace(/\\\\/g, '\\')
-        } else {
-            messageContent = message.substring(0, index+2) + renderMarkdown(message.substring(index+2, message.length).replace(/\\n/g,"\n"))
-            .replace(/\\n/g, "<br>")
+        }else{
+            messageContent = message.substring(0, index+2) + renderMarkdown(message.substring(index+2, message.length)
+            .replace(/\\n/g, "\n")
             .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\')
+            .replace(/\\\\/g, '\\'))
+            
             // Process LaTeX and replace only the LaTeX part
             if (messageContent.includes('$')) {
                 const latexMatches = messageContent.match(/\$(.*?)\$/g);
@@ -175,28 +182,28 @@ function displayMessage(message) {
         messageElement.innerHTML = messageContent;
         chatOutput.innerHTML += messageElement.outerHTML;
         chatOutput.scrollTop = chatOutput.scrollHeight;
+        if (!document.hasFocus()) {
+            unreadCount++;
+            document.title = `(${unreadCount}) WebSocket Chat`;
+        }
     }
 }
 
-
-
 chatInput.addEventListener('keydown', function(event) {
-    if (event.key === 'ArrowUp') {
-        if (historyIndex > 0) {
-            historyIndex--;
-            chatInput.value = history[historyIndex];
-            chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
-        }
-        event.preventDefault();
-    } else if (event.key === 'ArrowDown') {
+    const cursorPosition = chatInput.selectionStart;
+    const textBeforeCursor = chatInput.value.substring(0, cursorPosition);
+    const cursorLine = textBeforeCursor.split('\n').length;
+    
+    if (event.key === 'ArrowUp' && cursorLine === 1 && historyIndex > 0) {
+        historyIndex--;
+        chatInput.value = history[historyIndex];
+    } else if (event.key === 'ArrowDown' && cursorLine === chatInput.value.split('\n').length) {
         if (historyIndex < history.length - 1) {
             historyIndex++;
             chatInput.value = history[historyIndex];
-            chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
         } else {
-            historyIndex = history.length;
             chatInput.value = '';
-            chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
+            historyIndex = history.length;
         }
         event.preventDefault();
     } else if (event.key === 'Enter' && event.ctrlKey) {
@@ -219,6 +226,18 @@ chatInput.addEventListener('keydown', function(event) {
             history.push(message);
             historyIndex = history.length;
         }
+    }
+});
+
+
+window.addEventListener('focus', () => {
+    unreadCount = 0;
+    document.title = 'WebSocket Chat';
+});
+
+window.addEventListener('blur', () => {
+    if (unreadCount > 0) {
+        document.title = `(${unreadCount}) WebSocket Chat`;
     }
 });
 
