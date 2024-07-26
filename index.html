@@ -4,18 +4,224 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Chat</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        #name-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            text-align: center;
+        }
+        #name-prompt input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #name-prompt button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #name-prompt button:hover {
+            background-color: #0056b3;
+        }
+        #container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        #message-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px;
+            background: #fafafa;
+        }
+        .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .other-message {
+            background-color: #d0e0f0; /* Light blue */
+            align-self: flex-end;
+        }
+        .my-message {
+            background-color: #d0f0d0; /* Light green */
+            align-self: flex-start;
+        }
+        #input-container {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #fff;
+            border-top: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        #message-input, #right-input {
+            width: 100%;
+            height: 80px;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: none;
+            font-size: 16px;
+        }
+        #message-input-container {
+            flex: 1;
+        }
+        #right-input-container {
+            flex: 1;
+        }
+    </style>
 </head>
 <body>
-    <div id="chat-container">
-        <div id="chat-output"></div>
-        <textarea id="chat-input" placeholder="Type your message here..."></textarea>
+
+<div id="name-prompt">
+    <h3>名字：</h3>
+    <input type="text" id="username" placeholder="Your name">
+    <button id="submit-name">提交</button>
+</div>
+
+<div id="container" style="display: none;">
+    <div id="message-container"></div>
+    <div id="input-container">
+        <div id="message-input-container">
+            <textarea id="message-input" placeholder="Type your message here..."></textarea>
+        </div>
+        <div id="right-input-container">
+            <textarea id="right-input" placeholder="Send a number..."></textarea>
+        </div>
     </div>
-    <!-- KaTeX CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/katex.min.css">
-    <!-- KaTeX JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/katex.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/auto-render.min.js"></script>
-    <script src="script.js"></script>
+</div>
+
+<script>
+    let ws;
+    let reconnectInterval = 1000; // 1 second
+    let userId = '';
+    const namePrompt = document.getElementById('name-prompt');
+    const container = document.getElementById('container');
+
+    function connect() {
+        ws = new WebSocket('ws://2.tcp.vip.cpolar.cn:11312');
+
+        ws.onopen = () => {
+            console.log('Connected to the server');
+            reconnectInterval = 1000; // Reset reconnect interval on successful connection
+        };
+
+        ws.onmessage = (event) => {
+            const messageContainer = document.getElementById('message-container');
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'message') {
+                // Display text messages in the message container
+                const message = document.createElement('div');
+                message.textContent = `${data.sender}: ${data.msg}`;
+                message.className = data.sender === userId ? 'message my-message' : 'message other-message';
+                messageContainer.appendChild(message);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            } else if (data.type === 'result') {
+                // Display comparison result in the message container
+                const resultMessage = document.createElement('div');
+                resultMessage.textContent = `* ${data.winner}赢了，值:${data.winner_value},${data.loser}输了，值:${data.loser_value}`;
+                resultMessage.className = 'message';
+                resultMessage.style.backgroundColor = '#fff3cd'; // Light yellow for result
+                messageContainer.appendChild(resultMessage);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from the server. Reconnecting...');
+            setTimeout(connect, reconnectInterval);
+            reconnectInterval = Math.min(reconnectInterval * 2, 30000); // Exponential backoff, max 30 seconds
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            ws.close(); // Ensure the WebSocket is closed to trigger onclose
+        };
+    }
+
+    document.getElementById('submit-name').addEventListener('click', () => {
+        userId = document.getElementById('username').value.trim();
+        if (userId) {
+            namePrompt.style.display = 'none';
+            container.style.display = 'flex';
+            connect();
+        } else {
+            alert('名称不合法。');
+        }
+    });
+
+    const messageInput = document.getElementById('message-input');
+    messageInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    sender: userId,
+                    type: 'message',
+                    msg: messageInput.value
+                };
+                ws.send(JSON.stringify(message));
+                messageInput.value = '';
+            } else {
+                console.error('WebSocket is not open. Message not sent.');
+            }
+        }
+    });
+
+    const rightInput = document.getElementById('right-input');
+    rightInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            const number = parseInt(rightInput.value.trim(), 10);
+            if (isNaN(number) || number <= 0 || number > 10) {
+                alert('请输入值为 1 到 10 的整数.');
+                rightInput.value = ''; // Clear the input
+                return;
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    sender: userId,
+                    type: 'number',
+                    msg: number
+                };
+                ws.send(JSON.stringify(message));
+                rightInput.value = '';
+            } else {
+                console.error('WebSocket is not open. Message not sent.');
+            }
+        }
+    });
+</script>
+
 </body>
 </html>
