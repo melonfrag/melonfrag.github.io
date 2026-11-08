@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>激光镜阵 · 网页小游戏</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section id="start-screen" class="screen start-screen">
+      <div class="eyebrow">LASER MIRROR DUEL</div>
+      <h1>激光镜阵</h1>
+      <p class="subtitle">布置镜面，改变光路，找到通往敌方基地的路径。</p>
+      <div class="mode-cards">
+        <button class="mode-card" id="two-player-btn">
+          <span class="mode-icon">⚔</span>
+          <strong>双人对战</strong>
+          <small>两位玩家轮流操作</small>
+        </button>
+        <button class="mode-card" id="ai-mode-btn">
+          <span class="mode-icon">◈</span>
+          <strong>人机对战</strong>
+          <small>你执玩家 A，AI 执玩家 B</small>
+          <span class="coming">PLAY AI</span>
+        </button>
+      </div>
+      <div class="rules">
+        <h2>快速规则</h2>
+        <ul>
+          <li>每回合放置一面镜子，或从己方基地发射激光。</li>
+          <li>己方镜子可选择反射或透过；对方镜子必须反射。</li>
+          <li>每个格子最多一面镜子，放置后不能移动或改变方向。</li>
+          <li>每座基地上下左右相邻的四格，最多只能放置两面镜子。</li>
+          <li>激光击中对方基地即获胜；离开棋盘则本次攻击结束。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen game-screen hidden">
+      <header class="game-header">
+        <div>
+          <div class="eyebrow">LASER MIRROR DUEL</div>
+          <h1>激光镜阵</h1>
+        </div>
+        <button id="restart-btn" class="quiet-btn">返回主菜单</button>
+      </header>
+
+      <div class="game-layout">
+        <aside class="side-panel">
+          <div class="turn-card">
+            <span class="muted-label">当前行动</span>
+            <div id="turn-name" class="turn-name">玩家 A</div>
+            <div id="turn-hint" class="turn-hint">选择一种行动</div>
+          </div>
+          <div class="player-legend">
+            <div><span class="dot player-a"></span><b>玩家 A</b><small>基地 (3, 3)</small></div>
+            <div><span class="dot player-b"></span><b>玩家 B</b><small>基地 (7, 7)</small></div>
+          </div>
+          <div class="action-box">
+            <h2>放置镜子</h2>
+            <p>先选择镜面方向，再点击棋盘空格。</p>
+            <div class="mirror-buttons">
+              <button class="mirror-choice selected" data-mirror="slash"><span class="mirror-preview slash-preview" aria-hidden="true"></span><span>斜杠 /</span></button>
+              <button class="mirror-choice" data-mirror="backslash"><span class="mirror-preview backslash-preview" aria-hidden="true"></span><span>反斜杠 \\</span></button>
+            </div>
+            <button id="place-mode-btn" class="primary-btn">进入放置模式</button>
+          </div>
+          <div class="action-box">
+            <h2>发射激光</h2>
+            <p>选择从基地发射的方向。</p>
+            <div class="direction-grid">
+              <button data-dir="up" aria-label="向上">↑</button>
+              <button data-dir="left" aria-label="向左">←</button>
+              <button data-dir="right" aria-label="向右">→</button>
+              <button data-dir="down" aria-label="向下">↓</button>
+            </div>
+          </div>
+          <div class="action-box compact">
+            <h2>操作提示</h2>
+            <p id="status-message" aria-live="polite">轮到玩家 A。可以放置镜子或发射激光。</p>
+          </div>
+          <div id="choice-modal" class="choice-panel hidden" role="dialog" aria-modal="false" aria-labelledby="choice-title">
+            <div class="eyebrow">MIRROR INTERACTION</div>
+            <h2 id="choice-title">遇到己方镜子</h2>
+            <p>激光抵达己方镜面。请选择下一步：</p>
+            <div class="modal-actions">
+              <button id="reflect-btn" class="primary-btn">反射</button>
+              <button id="pass-btn" class="secondary-btn">透过</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="board-wrap">
+          <div class="board-topline">
+            <span>棋盘 · 9 × 9</span>
+            <span>坐标从左上角 (1, 1) 开始</span>
+          </div>
+          <div class="board-frame">
+            <div class="axis axis-top" id="axis-top"></div>
+            <div class="axis axis-left" id="axis-left"></div>
+            <div id="board" class="board" role="grid" aria-label="9乘9游戏棋盘"></div>
+          </div>
+          <div class="board-legend">
+            <span><i class="legend-mirror">／</i> 玩家 A 镜子</span>
+            <span><i class="legend-mirror">＼</i> 玩家 B 镜子</span>
+            <span><i class="legend-laser"></i> 激光路径</span>
+            <span><i class="legend-base">A/B</i> 基地</span>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="result-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card result-card">
+      <div class="eyebrow">GAME OVER</div>
+      <h2 id="result-title">玩家 A 获胜！</h2>
+      <p id="result-description">激光成功击中敌方基地。</p>
+      <button id="play-again-btn" class="primary-btn">再来一局</button>
+      <button id="result-menu-btn" class="secondary-btn">返回主菜单</button>
+    </div>
+  </div>
+
+  <script src="ai-protocol.js"></script>
+  <script src="game-ai.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
